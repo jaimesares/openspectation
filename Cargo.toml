@@ -1,0 +1,38 @@
+[package]
+name = "openspectation"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Inspect, scaffold and explore OpenSpec workspaces from the terminal"
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/jaimesares/openspectation"
+homepage = "https://github.com/jaimesares/openspectation"
+keywords = ["openspec", "specifications", "tui", "cli", "ratatui"]
+categories = ["command-line-utilities", "development-tools"]
+# Allowlist: the crate ships only what compiles and documents it. Planning
+# trees, agent configs and the demo toolkit stay out of the package.
+include = ["/src/**", "/locales/*.yml", "/build.rs", "/README.md", "/LICENSE", "/Cargo.toml"]
+
+# Consumed by rust-i18n at compile time. Kept in sync with `i18n!` in `src/lib.rs`.
+[package.metadata.i18n]
+available-locales = ["en", "es"]
+default-locale = "en"
+load-path = "locales"
+
+[dependencies]
+clap = { version = "4.6", features = ["derive", "env", "wrap_help"] }
+crossterm = "0.29"
+ratatui = "0.30"
+rust-i18n = "4.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_norway = "0.9"
+thiserror = "2.0"
+walkdir = "2.5"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "unwind"

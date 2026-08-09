@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # dtolnay/rust-toolchain is referenced by the toolchain it installs, not
+      # by a version of the action: the MSRV job pins @1.88 because that is the
+      # rust-version this crate declares. Dependabot reads the ref as an action
+      # version and proposes bumping it, which would leave the job checking a
+      # compiler newer than the one being promised.
+      - dependency-name: dtolnay/rust-toolchain

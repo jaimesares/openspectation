@@ -1,0 +1,24 @@
+# cargo-deny policy: advisories, dependency licenses and registry sources.
+# Run with `cargo deny check`.
+
+[advisories]
+yanked = "deny"
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Unicode-3.0",
+    # encoding_rs (via rust-i18n): "(Apache-2.0 OR MIT) AND BSD-3-Clause".
+    "BSD-3-Clause",
+    # foldhash (via ratatui's hashbrown).
+    "Zlib",
+]
+
+[bans]
+multiple-versions = "warn"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
