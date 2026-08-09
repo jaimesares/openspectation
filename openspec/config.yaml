@@ -1,0 +1,121 @@
+schema: spec-driven
+
+context: |
+  openspectation is a localized Rust CLI + TUI for OpenSpec workspaces: browse
+  changes, read requirement deltas, tick tasks, edit documents in place,
+  validate and archive. Edition 2024, minimum Rust 1.88.
+
+  One library crate (`src/lib.rs`) with two three-line binary shims,
+  `openspectation` and `ospc`, so both binaries share a single compilation.
+  Four layers, in dependency order:
+
+    cli.rs      clap derive definitions plus runtime help translation
+    domain/     everything filesystem-related; never touches the terminal
+    commands/   one module per subcommand, routed by commands::dispatch
+    tui/        terminal lifecycle, app state, renderers
+
+  Dependencies: clap 4.6, crossterm 0.29, ratatui 0.30, rust-i18n 4.2, serde,
+  serde_yaml, thiserror, walkdir. The list is deliberately short — filesystem
+  watching is a hand-rolled size+mtime fingerprint rather than a notification
+  crate, which keeps the binary self-contained and identical on every platform.
+  A new dependency needs an explicit justification in design.md.
+
+  Commands. `cargo` is not on PATH in non-interactive shells here; use
+  `~/.cargo/bin/cargo`.
+
+    cargo build --release      binaries land in target/release/
+    cargo test                 all tests are inline #[cfg(test)] modules
+    cargo clippy --all-targets
+    cargo fmt
+    cargo run -- --path <dir> tui
+
+  Constraints that shape almost every change:
+
+  - Every user-facing string goes through `t!`. `locales/en.yml` and
+    `locales/es.yml` must declare identical key sets; a test enforces it, so a
+    string added to one catalogue and not the other fails the suite.
+  - clap help is rebuilt at runtime by `cli::localized_command()` because clap
+    needs `&'static str` and translations are runtime values. A new subcommand
+    or flag needs its derive definition *and* an entry there, plus locale keys,
+    or its help silently stays in English.
+  - Errors carry data, never prose. `error::Error` has a stable English
+    `Display` for logs; `message()` and `hint()` return translated text.
+    Exit codes: 2 usage or workspace error, 1 I/O, parse or CLI failure,
+    0 success.
+  - Blocking work is queued as `app::Pending` and executed by the event loop
+    after the announcing frame has been drawn. Key handlers must never shell
+    out or block.
+  - Generated document boilerplate is always English, because it becomes part
+    of the user's repository. The detected interface language is recorded as
+    `project.language` in `openspec.yaml` instead.
+  - `validate` and `archive` shell out to the upstream `openspec` CLI;
+    everything else works without it.
+  - User preferences (palette, language) live in
+    `$XDG_CONFIG_HOME/openspectation/settings.yaml`, separate from workspace
+    configuration and never committed with a repository.
+
+  Two on-disk workspace layouts are read; only the flat one is written, by
+  `init`. Flat is `openspec.yaml` + `specs/` + `changes/` at the given path;
+  nested puts everything under `openspec/` with the config named `config.yaml`.
+  A change declares its requirement delta in `changes/<id>/specs/<cap>/spec.md`
+  under `## ADDED|MODIFIED|REMOVED|RENAMED Requirements` — the tool reads those
+  declarations rather than diffing two file versions.
+
+rules:
+  proposal:
+    - Name the user-visible symptom before the mechanism. This is a tool people
+      look at, and most changes start from something that reads wrong on screen.
+    - State in Impact whether the change touches user-facing strings, because
+      both locale catalogues have to move together.
+    - Say explicitly when a change adds a dependency, and why the existing
+      dependency set cannot cover it.
+
+  specs:
+    - Write requirements about what the user sees, or about what a workspace on
+      disk looks like afterwards. Never about modules, structs or functions.
+    - "Terminal behaviour is observable behaviour: pane contents, colour roles
+      (not literal colour values), keys, exit codes and stderr blocks all belong
+      in specs. Widget choice and layout arithmetic do not."
+    - Scenarios must be checkable by `cargo test`, including through the
+      `TestBackend` rendering tests in `src/tui/ui/tests.rs`.
+    - A requirement that only holds in one locale is a bug; state behaviour in
+      terms of message identity, not of the English wording.
+
+  design:
+    - Explain why, not what. The codebase keeps that habit in its module-level
+      `//!` docs and the design should read the same way.
+    - Record the alternatives that were rejected and the reason, especially when
+      the rejected one is the obvious one.
+    - "Call out any interaction with the invariants in the project context:
+      i18n key parity, runtime clap help, deferred blocking work, viewer cache
+      keying on identity rather than list position, and the exact-width Markdown
+      pre-wrapping the scrollbar arithmetic depends on."
+
+  tasks:
+    - "Group tasks by layer and keep `domain/` work ahead of `tui/` work: the
+      domain layer never touches the terminal and can be tested on its own."
+    - Any task that adds a user-facing string owns both `locales/en.yml` and
+      `locales/es.yml` within that same task.
+    - Every behavioural task carries its test. There is no separate testing
+      phase, because tests live inline next to the code they cover.
+    - Any task that builds an `App` in a test must take the guard from
+      `domain::settings::redirect_for_test`, or the test reads the developer's
+      real preferences.
+    - Close with `cargo fmt`, `cargo clippy --all-targets` and `cargo test`.
+
+operations:
+  apply:
+    guidance:
+      - Run `cargo test` after each layer rather than only at the end. A broken
+        locale catalogue fails a test far away from the code that caused it.
+      - Prefer extending `src/tui/ui/tests.rs` over describing a layout change in
+        prose; it asserts on the text a terminal would actually show, so a
+        regression that hides a pane still fails.
+      - Use `~/.cargo/bin/cargo`, since `cargo` is absent from PATH in
+        non-interactive shells here.
+  archive:
+    guidance:
+      - Confirm both locale catalogues still declare identical keys before
+        archiving.
+      - Note in the summary whether the change altered anything a user already
+        has stored in `settings.yaml`.
