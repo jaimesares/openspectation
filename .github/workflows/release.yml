@@ -100,6 +100,11 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
+      # A job-level block replaces the workflow-level one rather than adding to
+      # it, so the read the checkout needs has to be restated here. Without it
+      # the token carries no repository access at all and the clone fails
+      # outright while the repository is private.
+      contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v7
@@ -126,7 +131,13 @@ jobs:
           # crates.io only accepts a trusted publisher for a crate that
           # already exists. The first tag therefore names a version that is
           # already up, and so does a re-run of a partially failed release.
-          if curl -sf -o /dev/null "https://crates.io/api/v1/crates/${name}/${tagged}"; then
+          # crates.io answers 403 to a generic user agent under its data access
+          # policy, and a refused request is indistinguishable from an absent
+          # version to `curl -f`, so the check would claim every version is
+          # unpublished. Identify the caller.
+          agent="${GITHUB_REPOSITORY} release workflow (https://github.com/${GITHUB_REPOSITORY})"
+
+          if curl -sf -o /dev/null -A "$agent" "https://crates.io/api/v1/crates/${name}/${tagged}"; then
             echo "::notice::${name} ${tagged} is already on crates.io; skipping the upload"
             echo "needed=false" >> "$GITHUB_OUTPUT"
           else
