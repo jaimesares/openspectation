@@ -21,13 +21,29 @@ because it is the one you type.
 
 ## Install
 
+On Linux and macOS, with no toolchain required:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jaimesares/openspectation/main/install.sh | sh
+```
+
+The script picks the archive for the running system — glibc and musl are told
+apart, since the wrong one installs cleanly and then refuses to start —
+verifies its checksum and puts both binaries in `~/.local/bin`. Set
+`OPENSPECTATION_BIN_DIR` to install somewhere else, or `OPENSPECTATION_VERSION`
+to pin a version. Reading [the script](install.sh) before piping anything into
+a shell is a habit worth keeping.
+
+With Rust already installed:
+
 ```bash
 cargo install openspectation
 ```
 
-Prebuilt binaries for Linux (glibc and musl), macOS and Windows — x86_64 and
+Prebuilt archives for Linux (glibc and musl), macOS and Windows — x86_64 and
 aarch64 — are attached to every
-[GitHub release](https://github.com/jaimesares/openspectation/releases).
+[GitHub release](https://github.com/jaimesares/openspectation/releases), each
+next to its `.sha256`. Windows has no install script; take the `.zip`.
 
 Building from source requires Rust 1.88 or newer (edition 2024):
 

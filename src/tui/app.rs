@@ -4889,6 +4889,41 @@ mod tests {
         );
     }
 
+    /// The name reaches the scaffold whole. Reading one word turned
+    /// `:new Payment Links` into a change called `payment` without saying so.
+    #[test]
+    fn creating_a_change_keeps_every_word_of_its_name() {
+        let fixture = Fixture::new();
+        let mut app = fixture.app();
+
+        app.run_command(":new Payment Links");
+
+        assert!(fixture.path("changes/payment-links/proposal.md").is_file());
+        assert!(!fixture.path("changes/payment").exists());
+        assert_eq!(app.selected_change().unwrap().id, "payment-links");
+    }
+
+    /// The guard in `scaffold_change` was unreachable while `slugify` answered
+    /// with the name it was given, so `:new !!!` created `changes/!!!/`.
+    #[test]
+    fn creating_a_change_with_an_unusable_name_writes_nothing() {
+        let fixture = Fixture::new();
+        let mut app = fixture.app();
+
+        let before = std::fs::read_dir(fixture.path("changes")).unwrap().count();
+        app.run_command(":new !!!");
+
+        assert!(
+            log_text(&app).contains(&t!("error.invalid_name", name = "!!!").to_string()),
+            "the refusal has to say which name it refused"
+        );
+        assert_eq!(
+            std::fs::read_dir(fixture.path("changes")).unwrap().count(),
+            before,
+            "nothing was created"
+        );
+    }
+
     #[test]
     fn creating_a_change_that_already_exists_leaves_it_alone() {
         let fixture = Fixture::new();

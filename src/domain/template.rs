@@ -264,6 +264,10 @@ pub fn change_scaffold(slug: &str) -> Vec<(&'static str, String)> {
 }
 
 /// Lowercase, dash separated identifier derived from a project name.
+///
+/// Empty when the name carries nothing that can name a directory. Callers
+/// create a path out of the result, so the empty string is the refusal and
+/// has to be checked for.
 pub fn slugify(name: &str) -> String {
     let mut slug = String::with_capacity(name.len());
     let mut previous_dash = true;
@@ -278,12 +282,52 @@ pub fn slugify(name: &str) -> String {
         }
     }
 
-    let trimmed = slug.trim_matches('-').to_string();
+    let trimmed = slug.trim_matches('-');
     if trimmed.is_empty() {
-        util::humanize(name).to_lowercase().replace(' ', "-")
+        salvage(name)
     } else {
-        trimmed
+        trimmed.to_string()
     }
+}
+
+/// The best path component a name with no ASCII letters or digits can offer.
+///
+/// A name written in a script the slug above cannot represent still names a
+/// directory perfectly well, so it is kept rather than refused, once every
+/// character that cannot appear in a path component is gone. A name with no
+/// letter or digit left in any script has nothing to name anything with, and
+/// the empty string reports that instead of handing back the punctuation it
+/// was given: this used to answer `!!!` for `!!!`, and the callers went on to
+/// create a directory called that.
+fn salvage(name: &str) -> String {
+    let kept: String = name
+        .chars()
+        .filter(|character| !is_path_hostile(*character))
+        .collect();
+
+    // Leading dots are trimmed rather than filtered out, because a name is
+    // allowed to contain one and not allowed to *be* `.` or `..`.
+    let kept = kept.trim().trim_matches('.').trim();
+
+    if !kept.chars().any(char::is_alphanumeric) {
+        return String::new();
+    }
+
+    kept.split_whitespace()
+        .collect::<Vec<_>>()
+        .join("-")
+        .to_lowercase()
+}
+
+/// Whether a character cannot appear in a path component somewhere this tool
+/// runs. The Windows reserved set is refused everywhere: a workspace is meant
+/// to be committed and read back on another machine.
+fn is_path_hostile(character: char) -> bool {
+    character.is_control()
+        || matches!(
+            character,
+            '/' | '\\' | '<' | '>' | ':' | '"' | '|' | '?' | '*'
+        )
 }
 
 #[cfg(test)]
@@ -304,11 +348,39 @@ mod tests {
         assert_eq!(slugify("Especificación Técnica"), "especificaci-n-t-cnica");
     }
 
+    /// A name the ASCII slug cannot represent is kept when it can still name a
+    /// directory, because refusing it would turn away every language that does
+    /// not spell in ASCII.
     #[test]
     fn a_name_without_ascii_characters_still_yields_a_slug() {
         assert_eq!(slugify("ñ"), "ñ");
-        assert_eq!(slugify("---"), "---");
-        assert_eq!(slugify(""), "");
+        assert_eq!(slugify("日本語"), "日本語");
+        assert_eq!(slugify("Проект Один"), "проект-один");
+    }
+
+    /// The result is joined onto a path, so a name with nothing to name a
+    /// directory with has to come back empty rather than come back verbatim.
+    /// `slugify("!!!")` once answered `!!!`, and `openspectation init '!!!'`
+    /// went on to write `specs/!!!.md`.
+    #[test]
+    fn a_name_that_cannot_be_a_path_component_slugifies_to_nothing() {
+        for name in ["", "   ", "!!!", "---", "...", "..", ".", "?*|", "\u{7}"] {
+            assert_eq!(slugify(name), "", "{name:?} should slugify to nothing");
+        }
+    }
+
+    /// The separators are removed rather than encoded: a slug that carried one
+    /// would reach into a directory the caller never named.
+    #[test]
+    fn a_slug_never_carries_a_path_separator() {
+        for name in ["ñ/ñ", "ñ\\ñ", "日本/語", "a/b"] {
+            let slug = slugify(name);
+            assert!(!slug.is_empty(), "{name:?} still names something");
+            assert!(
+                !slug.contains('/') && !slug.contains('\\'),
+                "{name:?} produced {slug:?}"
+            );
+        }
     }
 
     #[test]

@@ -74,12 +74,16 @@ pub fn run(path: &Path, args: &InitArgs, painter: Painter) -> Result<()> {
 }
 
 /// Accepts a name that can head a document and name a file, and nothing else.
+///
+/// The scaffold derives two filenames from the name, so a name that slugifies
+/// to nothing is refused here rather than writing `specs/.md`.
 fn project_name(raw: &str) -> Result<&str> {
     let name = raw.trim();
     if name.is_empty()
         || name
             .chars()
             .any(|character| matches!(character, '/' | '\\' | '\0'))
+        || template::slugify(name).is_empty()
     {
         return Err(Error::InvalidProjectName(raw.to_string()));
     }
@@ -296,7 +300,9 @@ mod tests {
 
     #[test]
     fn a_name_that_cannot_be_a_path_is_refused() {
-        for name in ["", "   ", "a/b", "a\\b", "a\0b"] {
+        // The last four carry no character the scaffold could name a document
+        // with; `init '!!!'` used to write `specs/!!!.md` and mean it.
+        for name in ["", "   ", "a/b", "a\\b", "a\0b", "!!!", "---", "...", "?*"] {
             match project_name(name) {
                 Err(Error::InvalidProjectName(reported)) => assert_eq!(reported, name),
                 other => panic!("{name:?} should be refused, got {other:?}"),

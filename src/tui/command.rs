@@ -79,9 +79,14 @@ pub fn parse(raw: &str) -> Option<Command> {
             skip_specs: has("--skip-specs"),
             target: first,
         },
-        "new" | "n" => match first {
-            Some(id) => Command::New(id),
-            None => Command::Invalid(t!("command.needs_name", command = "new").to_string()),
+        // A change is named rather than addressed, and names have spaces in
+        // them. Reading one word would answer `:new Payment Links` with a
+        // change called `payment` and say nothing about the half it dropped.
+        "new" | "n" => match after(trimmed) {
+            name if name.is_empty() => {
+                Command::Invalid(t!("command.needs_name", command = "new").to_string())
+            }
+            name => Command::New(name),
         },
         // The rest of the line is the expression, spaces and all.
         "filter" | "f" => Command::Filter(after(trimmed)),
@@ -210,9 +215,25 @@ mod tests {
     #[test]
     fn new_without_a_name_is_rejected() {
         assert!(matches!(parse(":new"), Some(Command::Invalid(_))));
+        assert!(matches!(parse(":new    "), Some(Command::Invalid(_))));
         assert_eq!(
             parse(":new add-oauth"),
             Some(Command::New("add-oauth".to_string()))
+        );
+    }
+
+    /// A change is named, and a name is more than one word. Reading only the
+    /// first answered `:new Payment Links` with a change called `payment` and
+    /// said nothing about the word it dropped.
+    #[test]
+    fn new_keeps_every_word_of_the_name() {
+        assert_eq!(
+            parse(":new Payment Links"),
+            Some(Command::New("Payment Links".to_string()))
+        );
+        assert_eq!(
+            parse(":new  Offline   sync  "),
+            Some(Command::New("Offline   sync".to_string()))
         );
     }
 

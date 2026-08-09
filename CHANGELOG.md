@@ -8,6 +8,22 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-10
+
+### Added
+
+- `install.sh`: one-line install of the prebuilt binaries on Linux and macOS,
+  telling glibc and musl apart and verifying the archive's checksum.
+- Every release archive now ships a `.sha256` beside it.
+
+### Fixed
+
+- A name carrying no letter or digit is refused instead of becoming a path.
+  `openspectation init '!!!'` wrote `specs/!!!.md`, and `:new !!!` created
+  `changes/!!!/`. Names written in other scripts are unaffected.
+- `:new` keeps every word of the name it is given. `:new Payment Links`
+  created a change called `payment` and said nothing about the rest.
+
 ## [0.1.0] - 2026-08-09
 
 ### Added
@@ -27,5 +43,6 @@ and this project adheres to
 - Six palettes, defaulting to the terminal's own scheme.
 - Activity timeline reconstructed from the workspace's git history.
 
-[Unreleased]: https://github.com/jaimesares/openspectation/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jaimesares/openspectation/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/jaimesares/openspectation/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jaimesares/openspectation/releases/tag/v0.1.0
