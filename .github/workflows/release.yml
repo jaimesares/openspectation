@@ -1,8 +1,9 @@
 name: Release
 
 # Tag pushes (v*) build every target, attach the archives to a GitHub Release
-# and publish to crates.io. A workflow_dispatch run builds the same targets but
-# skips both publishing jobs, so the matrix can be proven without a tag.
+# and publish to crates.io. A workflow_dispatch run builds the same targets and
+# proves the crates.io credentials without uploading anything, so the whole
+# release path can be rehearsed before a tag exists.
 
 on:
   push:
@@ -93,6 +94,22 @@ jobs:
         with:
           files: assets/*
           generate_release_notes: true
+
+  # crates.io is configured to reject API tokens for this crate, so the OIDC
+  # exchange is the only way a version can ever go up and there is no manual
+  # fallback if it breaks. It depends on three things agreeing with what is
+  # registered on crates.io — the repository, the filename of this workflow and
+  # the environment — and none of them are visible from the repository side.
+  # Minting a token proves all three, and the action's own cleanup revokes it,
+  # so this asks the exact question a release asks without uploading anything.
+  credentials:
+    name: Verify crates.io credentials
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: rust-lang/crates-io-auth-action@v1
 
   publish:
     name: Publish to crates.io

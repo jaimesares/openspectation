@@ -57,5 +57,9 @@ manual by design.
    the GitHub Release and publishes to crates.io through Trusted Publishing —
    an OIDC token minted per run, no stored secret.
 
-A `workflow_dispatch` run of the same workflow builds every target and skips
-both publishing jobs — use it to prove the matrix before tagging.
+A `workflow_dispatch` run of the same workflow builds every target and mints a
+crates.io token without uploading anything — use it to prove both the matrix
+and the trusted publisher before tagging. That rehearsal matters because the
+crate rejects API tokens: if the OIDC exchange is misconfigured there is no
+way to publish by hand, and a tag that fails has already created its GitHub
+Release by the time the upload is attempted.
